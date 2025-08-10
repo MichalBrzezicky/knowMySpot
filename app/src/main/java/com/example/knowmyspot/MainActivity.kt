@@ -11,8 +11,11 @@ import android.widget.TextView
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.lifecycleScope
+import com.example.knowmyspot.data.LocationRecord
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -26,6 +29,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvLocation: TextView
     private lateinit var tvWeather: TextView
     private lateinit var btnRefresh: Button
+
+    private val repository by lazy { (application as LocationApplication).repository }
 
     private var lastLat: Double? = null
     private var lastLon: Double? = null
@@ -107,7 +112,16 @@ class MainActivity : AppCompatActivity() {
                     val lat = lastLat
                     val lon = lastLon
                     if (lat != null && lon != null) {
-                        HistoryStorage.items.add(0, HistoryItem(lat, lon, weatherText))
+                        lifecycleScope.launch {
+                            repository.insert(
+                                LocationRecord(
+                                    latitude = lat,
+                                    longitude = lon,
+                                    timestamp = System.currentTimeMillis(),
+                                    address = weatherText
+                                )
+                            )
+                        }
                     }
                     Log.d("Weather", "Úspěch: $temp°C, $desc")
                 } else {
