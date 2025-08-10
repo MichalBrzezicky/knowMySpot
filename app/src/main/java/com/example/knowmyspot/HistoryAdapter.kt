@@ -9,6 +9,8 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.knowmyspot.data.LocationRecord
+import java.text.SimpleDateFormat
+import java.util.*
 
 class HistoryAdapter(
     private val context: Context,
@@ -27,6 +29,7 @@ class HistoryAdapter(
 
     class HistoryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val address: TextView = itemView.findViewById(R.id.tvHistoryItemAddress)
+        private val timestamp: TextView = itemView.findViewById(R.id.tvHistoryItemTimestamp)
         private val weather: TextView = itemView.findViewById(R.id.tvHistoryItemWeather)
         private val coordinates: TextView = itemView.findViewById(R.id.tvHistoryItemCoordinates)
         private val note: TextView = itemView.findViewById(R.id.tvHistoryItemNote)
@@ -37,6 +40,7 @@ class HistoryAdapter(
 
         fun bind(record: LocationRecord, viewModel: HistoryViewModel) {
             address.text = record.address
+            timestamp.text = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(Date(record.timestamp))
             weather.text = record.weather ?: "Počasí: --"
             coordinates.text = "Lat: %.5f, Lon: %.5f".format(record.latitude, record.longitude)
             note.text = "Poznámka: ${record.note ?: "--"}"
