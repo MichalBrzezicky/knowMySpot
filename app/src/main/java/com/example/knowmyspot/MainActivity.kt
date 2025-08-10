@@ -7,7 +7,10 @@ import android.location.Geocoder
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Button
+import android.widget.ImageButton
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
@@ -30,8 +33,10 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var tvLocation: TextView
+    private lateinit var tvCoordinates: TextView
     private lateinit var tvWeather: TextView
-    private lateinit var btnRefresh: Button
+    private lateinit var btnRefresh: ImageButton
+    private lateinit var progressBar: ProgressBar
     private lateinit var geocoder: Geocoder
 
     private val repository by lazy { (application as LocationApplication).repository }
@@ -48,14 +53,17 @@ class MainActivity : AppCompatActivity() {
             .create(WeatherApi::class.java)
     }
 
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         tvLocation = findViewById(R.id.tvLocation)
+        tvCoordinates = findViewById(R.id.tvCoordinates)
         tvWeather = findViewById(R.id.tvWeather)
         btnRefresh = findViewById(R.id.btnRefresh)
+        progressBar = findViewById(R.id.progressBar)
         geocoder = Geocoder(this, Locale.getDefault())
 
         findViewById<Button>(R.id.btnHistory).setOnClickListener {
@@ -73,23 +81,30 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun getLastLocation() {
+        btnRefresh.visibility = View.GONE
+        progressBar.visibility = View.VISIBLE
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
             ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 100)
+            progressBar.visibility = View.GONE
+            btnRefresh.visibility = View.VISIBLE
             return
         }
         fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
             if (location != null) {
                 lastLat = location.latitude
                 lastLon = location.longitude
+                tvCoordinates.text = "Lat: %.5f, Lon: %.5f".format(location.latitude, location.longitude)
                 lifecycleScope.launch {
                     val address = getAddressFromLocation(location)
-                    tvLocation.text = address ?: "Lat: ${location.latitude}, Lon: ${location.longitude}"
-                    getWeather(address) // Po získání polohy rovnou načti počasí
+                    tvLocation.text = address ?: "Adresa nenalezena"
+                    getWeather(address)
                 }
             } else {
                 tvLocation.text = "Poloha není dostupná"
                 tvWeather.text = "Počasí: --"
+                progressBar.visibility = View.GONE
+                btnRefresh.visibility = View.VISIBLE
             }
         }
     }
@@ -100,6 +115,8 @@ class MainActivity : AppCompatActivity() {
         if (lat == null || lon == null) {
             tvWeather.text = "Počasí: --"
             Log.e("Weather", "Souřadnice nejsou k dispozici")
+            progressBar.visibility = View.GONE
+            btnRefresh.visibility = View.VISIBLE
             return
         }
         weatherApi.getWeather(lat, lon, weatherApiKey).enqueue(object : Callback<WeatherResponse> {
@@ -107,6 +124,8 @@ class MainActivity : AppCompatActivity() {
                 if (!response.isSuccessful) {
                     tvWeather.text = "Počasí: --"
                     Log.e("Weather", "Chyba HTTP: ${response.code()} ${response.message()}")
+                    progressBar.visibility = View.GONE
+                    btnRefresh.visibility = View.VISIBLE
                     return
                 }
                 val body = response.body()
@@ -134,13 +153,17 @@ class MainActivity : AppCompatActivity() {
                     }
                     Log.d("Weather", "Úspěch: $temp°C, $desc")
                 } else {
-                    tvWeather.text = "Počasí: --"
+                    tvWeather.text = "Počas��: --"
                     Log.e("Weather", "Tělo odpovědi je null")
                 }
+                progressBar.visibility = View.GONE
+                btnRefresh.visibility = View.VISIBLE
             }
             override fun onFailure(call: Call<WeatherResponse>, t: Throwable) {
                 tvWeather.text = "Počasí: --"
                 Log.e("Weather", "Chyba volání: ${t.message}", t)
+                progressBar.visibility = View.GONE
+                btnRefresh.visibility = View.VISIBLE
             }
         })
     }
