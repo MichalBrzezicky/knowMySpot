@@ -19,10 +19,11 @@ class HistoryAdapter(
 
         val info = view.findViewById<TextView>(R.id.tvHistoryItemInfo)
         val btnEdit = view.findViewById<ImageButton>(R.id.btnEditNote)
+        val btnDelete = view.findViewById<ImageButton>(R.id.btnDeleteRecord)
         val etNote = view.findViewById<EditText>(R.id.etNote)
         val btnSave = view.findViewById<Button>(R.id.btnSaveNote)
 
-        info.text = "Lat: %.5f, Lon: %.5f\n%s\nPoznámka: %s".format(record.latitude, record.longitude, record.address, record.note ?: "--")
+        info.text = "Adresa: %s\n%s\nLat: %.5f, Lon: %.5f\nPoznámka: %s".format(record.address, record.weather ?: "Počasí: --", record.latitude, record.longitude, record.note ?: "--")
         etNote.visibility = View.GONE
         btnSave.visibility = View.GONE
 
@@ -31,6 +32,10 @@ class HistoryAdapter(
             etNote.visibility = View.VISIBLE
             btnSave.visibility = View.VISIBLE
             etNote.requestFocus()
+        }
+
+        btnDelete.setOnClickListener {
+            viewModel.delete(record)
         }
 
         btnSave.setOnClickListener {
@@ -43,4 +48,3 @@ class HistoryAdapter(
         return view
     }
 }
-

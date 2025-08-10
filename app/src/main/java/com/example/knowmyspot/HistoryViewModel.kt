@@ -24,6 +24,11 @@ class HistoryViewModel(private val repository: LocationRepository) : ViewModel()
         repository.update(locationRecord)
         loadRecords()
     }
+
+    fun delete(locationRecord: LocationRecord) = viewModelScope.launch {
+        repository.delete(locationRecord)
+        loadRecords()
+    }
 }
 
 class HistoryViewModelFactory(private val repository: LocationRepository) : ViewModelProvider.Factory {

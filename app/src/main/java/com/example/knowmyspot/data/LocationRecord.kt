@@ -6,5 +6,6 @@ data class LocationRecord(
     val longitude: Double,
     val timestamp: Long,
     val address: String,
+    val weather: String?,
     val note: String? = null
 )

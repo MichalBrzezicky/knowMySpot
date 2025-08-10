@@ -3,6 +3,7 @@ package com.example.knowmyspot
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
@@ -23,12 +24,15 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
+import java.io.IOException
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var tvLocation: TextView
     private lateinit var tvWeather: TextView
     private lateinit var btnRefresh: Button
+    private lateinit var geocoder: Geocoder
 
     private val repository by lazy { (application as LocationApplication).repository }
 
@@ -52,6 +56,7 @@ class MainActivity : AppCompatActivity() {
         tvLocation = findViewById(R.id.tvLocation)
         tvWeather = findViewById(R.id.tvWeather)
         btnRefresh = findViewById(R.id.btnRefresh)
+        geocoder = Geocoder(this, Locale.getDefault())
 
         findViewById<Button>(R.id.btnHistory).setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java))
@@ -75,10 +80,13 @@ class MainActivity : AppCompatActivity() {
         }
         fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
             if (location != null) {
-                tvLocation.text = "Lat: ${location.latitude}, Lon: ${location.longitude}"
                 lastLat = location.latitude
                 lastLon = location.longitude
-                getWeather() // Po získání polohy rovnou načti počasí
+                lifecycleScope.launch {
+                    val address = getAddressFromLocation(location)
+                    tvLocation.text = address ?: "Lat: ${location.latitude}, Lon: ${location.longitude}"
+                    getWeather(address) // Po získání polohy rovnou načti počasí
+                }
             } else {
                 tvLocation.text = "Poloha není dostupná"
                 tvWeather.text = "Počasí: --"
@@ -86,7 +94,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun getWeather() {
+    private fun getWeather(address: String?) {
         val lat = lastLat
         val lon = lastLon
         if (lat == null || lon == null) {
@@ -118,7 +126,8 @@ class MainActivity : AppCompatActivity() {
                                     latitude = lat,
                                     longitude = lon,
                                     timestamp = System.currentTimeMillis(),
-                                    address = weatherText
+                                    address = address ?: "Neznámá adresa",
+                                    weather = weatherText
                                 )
                             )
                         }
@@ -136,10 +145,25 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 100 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             getLastLocation()
+        }
+    }
+
+    private fun getAddressFromLocation(location: Location): String? {
+        return try {
+            val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+            if (addresses?.isNotEmpty() == true) {
+                addresses[0].getAddressLine(0)
+            } else {
+                null
+            }
+        } catch (e: IOException) {
+            Log.e("Geocoder", "Nelze získat adresu", e)
+            null
         }
     }
 }
