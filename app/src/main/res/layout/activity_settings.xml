@@ -48,18 +48,31 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Jednotky"
+                        android:text="Jednotky teploty"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switchUnits"
+                    <RadioGroup
+                        android:id="@+id/rgUnits"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Metrické / Imperiální"
-                        android:textSize="16sp" />
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/rbMetric"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Celsius" />
+
+                        <RadioButton
+                            android:id="@+id/rbImperial"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:text="Fahrenheit" />
+                    </RadioGroup>
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -80,17 +93,50 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="O aplikaci"
+                        android:text="Výchozí poznámka"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
+                    <EditText
+                        android:id="@+id/etDefaultNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:hint="Zadejte výchozí text..." />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:text="Správa dat"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnClearHistory"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Verze aplikace: 1.0.0"
-                        android:textSize="16sp" />
+                        android:text="Vymazat historii"
+                        android:textColor="@color/colorAccent"
+                        style="@style/Widget.MaterialComponents.Button.TextButton" />
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>

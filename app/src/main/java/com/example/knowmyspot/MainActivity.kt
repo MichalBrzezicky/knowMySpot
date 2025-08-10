@@ -12,6 +12,7 @@ import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -36,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvCoordinates: TextView
     private lateinit var tvWeather: TextView
     private lateinit var btnRefresh: ImageButton
+    private lateinit var btnSave: ImageButton
     private lateinit var progressBar: ProgressBar
     private lateinit var geocoder: Geocoder
 
@@ -43,6 +45,7 @@ class MainActivity : AppCompatActivity() {
 
     private var lastLat: Double? = null
     private var lastLon: Double? = null
+    private var lastAddress: String? = null
     private var lastWeather: String? = null
     private val weatherApiKey = "daf995ddd2e62368f8cb8e6151c40a4e"
     private val weatherApi: WeatherApi by lazy {
@@ -65,6 +68,7 @@ class MainActivity : AppCompatActivity() {
         btnRefresh = findViewById(R.id.btnRefresh)
         progressBar = findViewById(R.id.progressBar)
         geocoder = Geocoder(this, Locale.getDefault())
+        btnSave = findViewById(R.id.btnSave)
 
         findViewById<Button>(R.id.btnHistory).setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java))
@@ -74,13 +78,23 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnRefresh.setOnClickListener {
-            getLastLocation()
+            getLastLocation(false)
         }
-        getLastLocation()
+        btnSave.setOnClickListener {
+            saveCurrentLocation()
+        }
+        getLastLocation(true)
+    }
+
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    override fun onResume() {
+        super.onResume()
+        // Znovu načte polohu a počasí pro případ, že se změnilo nastavení (např. jednotky)
+        getLastLocation(false)
     }
 
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-    private fun getLastLocation() {
+    private fun getLastLocation(shouldSave: Boolean) {
         btnRefresh.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
@@ -98,7 +112,8 @@ class MainActivity : AppCompatActivity() {
                 lifecycleScope.launch {
                     val address = getAddressFromLocation(location)
                     tvLocation.text = address ?: "Adresa nenalezena"
-                    getWeather(address)
+                    lastAddress = address
+                    getWeather(address, shouldSave)
                 }
             } else {
                 tvLocation.text = "Poloha není dostupná"
@@ -109,7 +124,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun getWeather(address: String?) {
+    private fun getWeather(address: String?, shouldSave: Boolean) {
         val lat = lastLat
         val lon = lastLon
         if (lat == null || lon == null) {
@@ -119,7 +134,11 @@ class MainActivity : AppCompatActivity() {
             btnRefresh.visibility = View.VISIBLE
             return
         }
-        weatherApi.getWeather(lat, lon, weatherApiKey).enqueue(object : Callback<WeatherResponse> {
+
+        val sharedPreferences = getSharedPreferences("settings", MODE_PRIVATE)
+        val unit = sharedPreferences.getString("unit", "metric") ?: "metric"
+
+        weatherApi.getWeather(lat, lon, weatherApiKey, unit).enqueue(object : Callback<WeatherResponse> {
             override fun onResponse(call: Call<WeatherResponse>, response: Response<WeatherResponse>) {
                 if (!response.isSuccessful) {
                     tvWeather.text = "Počasí: --"
@@ -132,28 +151,33 @@ class MainActivity : AppCompatActivity() {
                 if (body != null) {
                     val desc = body.weather.firstOrNull()?.description ?: "--"
                     val temp = body.main.temp
-                    val weatherText = "Počasí: $temp°C, $desc"
+                    val unitSymbol = if (unit == "imperial") "°F" else "°C"
+                    val weatherText = "Počasí: $temp$unitSymbol, $desc"
                     tvWeather.text = weatherText
                     lastWeather = weatherText
                     // Uložení do historie
-                    val lat = lastLat
-                    val lon = lastLon
-                    if (lat != null && lon != null) {
-                        lifecycleScope.launch {
-                            repository.insert(
-                                LocationRecord(
-                                    latitude = lat,
-                                    longitude = lon,
-                                    timestamp = System.currentTimeMillis(),
-                                    address = address ?: "Neznámá adresa",
-                                    weather = weatherText
+                    if (shouldSave) {
+                        val lat = lastLat
+                        val lon = lastLon
+                        if (lat != null && lon != null) {
+                            val defaultNote = sharedPreferences.getString("default_note", "")
+                            lifecycleScope.launch {
+                                repository.insert(
+                                    LocationRecord(
+                                        latitude = lat,
+                                        longitude = lon,
+                                        timestamp = System.currentTimeMillis(),
+                                        address = address ?: "Neznámá adresa",
+                                        weather = weatherText,
+                                        note = defaultNote
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
-                    Log.d("Weather", "Úspěch: $temp°C, $desc")
+                    Log.d("Weather", "Úspěch: $temp$unitSymbol, $desc")
                 } else {
-                    tvWeather.text = "Počas��: --"
+                    tvWeather.text = "Počasí: --"
                     Log.e("Weather", "Tělo odpovědi je null")
                 }
                 progressBar.visibility = View.GONE
@@ -168,11 +192,32 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    private fun saveCurrentLocation() {
+        if (lastLat != null && lastLon != null && lastAddress != null) {
+            val sharedPreferences = getSharedPreferences("settings", MODE_PRIVATE)
+            val defaultNote = sharedPreferences.getString("default_note", "")
+            val record = LocationRecord(
+                latitude = lastLat!!,
+                longitude = lastLon!!,
+                timestamp = System.currentTimeMillis(),
+                address = lastAddress!!,
+                weather = lastWeather,
+                note = defaultNote
+            )
+            lifecycleScope.launch {
+                repository.insert(record)
+                Toast.makeText(this@MainActivity, "Poloha uložena", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(this, "Nelze uložit, data o poloze nejsou k dispozici.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 100 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            getLastLocation()
+            getLastLocation(true)
         }
     }
 
@@ -198,7 +243,7 @@ interface WeatherApi {
         @Query("lat") lat: Double,
         @Query("lon") lon: Double,
         @Query("appid") apiKey: String,
-        @Query("units") units: String = "metric",
+        @Query("units") units: String,
         @Query("lang") lang: String = "cz"
     ): Call<WeatherResponse>
 }

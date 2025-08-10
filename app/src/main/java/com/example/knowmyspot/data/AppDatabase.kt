@@ -73,6 +73,11 @@ class AppDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, n
         db.delete(TABLE_NAME, "$COLUMN_ID = ?", arrayOf(record.id.toString()))
     }
 
+    fun clearHistory() {
+        val db = writableDatabase
+        db.delete(TABLE_NAME, null, null)
+    }
+
     fun getAllRecords(): List<LocationRecord> {
         val db = readableDatabase
         val cursor = db.query(

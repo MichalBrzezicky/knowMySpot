@@ -35,4 +35,12 @@ class HistoryActivity : AppCompatActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh the list in case history was cleared
+        historyViewModel.refresh()
+        val adapter = findViewById<RecyclerView>(R.id.rvHistory).adapter as HistoryAdapter
+        adapter.notifyDataSetChanged()
+    }
 }

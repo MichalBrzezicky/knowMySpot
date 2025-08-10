@@ -41,7 +41,28 @@ class HistoryAdapter(
         fun bind(record: LocationRecord, viewModel: HistoryViewModel) {
             address.text = record.address
             timestamp.text = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(Date(record.timestamp))
-            weather.text = record.weather ?: "Počasí: --"
+
+            val sharedPreferences = itemView.context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            val unit = sharedPreferences.getString("unit", "metric")
+            val weatherString = record.weather
+
+            if (weatherString != null && weatherString.contains("°C")) {
+                try {
+                    val tempCelsiusString = weatherString.substringAfter(": ").substringBefore("°").trim()
+                    val tempCelsius = tempCelsiusString.toDouble()
+                    if (unit == "imperial") {
+                        val tempFahrenheit = tempCelsius * 9 / 5 + 32
+                        weather.text = "Počasí: %.1f °F".format(tempFahrenheit)
+                    } else {
+                        weather.text = weatherString
+                    }
+                } catch (e: Exception) {
+                    weather.text = weatherString // Fallback in case of parsing error
+                }
+            } else {
+                weather.text = weatherString ?: "Počasí: --"
+            }
+
             coordinates.text = "Lat: %.5f, Lon: %.5f".format(record.latitude, record.longitude)
             note.text = "Poznámka: ${record.note ?: "--"}"
 

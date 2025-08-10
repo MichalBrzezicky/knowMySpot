@@ -7,10 +7,6 @@
     android:background="@color/background_color"
     tools:context=".MainActivity">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
         <LinearLayout
             android:id="@+id/mainContentContainer"
             android:layout_width="wrap_content"
@@ -21,7 +17,7 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.5">
+            app:layout_constraintVertical_bias="0.45">
 
             <ImageView
                 android:id="@+id/appLogo"
@@ -106,37 +102,46 @@
                         android:textColor="@color/text_secondary"
                         android:textSize="14sp" />
                 </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/actionButtonsContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="32dp"
+                android:visibility="visible">
+
+                <ImageButton
+                    android:id="@+id/btnRefresh"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_refresh_24"
+                    app:tint="@color/colorPrimary"
+                    android:contentDescription="Obnovit polohu" />
+
+                <ImageButton
+                    android:id="@+id/btnSave"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:layout_marginStart="24dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_save_24"
+                    app:tint="@color/colorPrimary"
+                    android:contentDescription="Uložit polohu" />
 
             </LinearLayout>
 
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
         </LinearLayout>
-
-        <ImageButton
-            android:id="@+id/btnRefresh"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Obnovit"
-            android:padding="12dp"
-            android:src="@drawable/ic_refresh_24"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/mainContentContainer"
-            app:tint="@color/colorPrimary" />
-
-        <ProgressBar
-            android:id="@+id/progressBar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="@+id/btnRefresh"
-            app:layout_constraintEnd_toEndOf="@+id/btnRefresh"
-            app:layout_constraintStart_toStartOf="@+id/btnRefresh"
-            app:layout_constraintTop_toTopOf="@+id/btnRefresh" />
-
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <com.google.android.material.bottomappbar.BottomAppBar
         android:id="@+id/bottomAppBar"
