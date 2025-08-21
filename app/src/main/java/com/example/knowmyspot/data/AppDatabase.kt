@@ -9,7 +9,7 @@ class AppDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, n
 
     companion object {
         private const val DATABASE_NAME = "location_history.db"
-        private const val DATABASE_VERSION = 3 // zvýšení verze kvůli migraci
+        private const val DATABASE_VERSION = 3
 
         const val TABLE_NAME = "location_records"
         const val COLUMN_ID = "id"
