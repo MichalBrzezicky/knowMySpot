@@ -18,24 +18,18 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.knowmyspot.data.LocationRecord
+import com.example.knowmyspot.network.WeatherApi
+import com.example.knowmyspot.network.WeatherResponse
+import com.example.knowmyspot.network.WeatherService
+import com.example.knowmyspot.location.LocationProvider
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.GET
-import retrofit2.http.Query
 import java.io.IOException
 import java.util.*
-import android.os.Looper
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
 
 class MainActivity : AppCompatActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -46,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSave: ImageButton
     private lateinit var progressBar: ProgressBar
     private lateinit var geocoder: Geocoder
+    private lateinit var locationProvider: LocationProvider
 
     private val repository by lazy { (application as LocationApplication).repository }
 
@@ -54,13 +49,7 @@ class MainActivity : AppCompatActivity() {
     private var lastAddress: String? = null
     private var lastWeather: String? = null
     private val weatherApiKey = "daf995ddd2e62368f8cb8e6151c40a4e"
-    private val weatherApi: WeatherApi by lazy {
-        Retrofit.Builder()
-            .baseUrl("https://api.openweathermap.org/data/2.5/")
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(WeatherApi::class.java)
-    }
+    private val weatherApi: WeatherApi by lazy { WeatherService.api }
 
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,6 +57,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        locationProvider = LocationProvider(this, fusedLocationClient)
         tvLocation = findViewById(R.id.tvLocation)
         tvCoordinates = findViewById(R.id.tvCoordinates)
         tvWeather = findViewById(R.id.tvWeather)
@@ -111,89 +101,16 @@ class MainActivity : AppCompatActivity() {
             btnRefresh.visibility = View.VISIBLE
             return
         }
-        fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+        locationProvider.getLastOrFreshLocation { location: Location? ->
             if (location != null) {
-                val isRecent = isRecentLocation(location)
-                val accText = if (location.hasAccuracy()) " acc=${location.accuracy}" else ""
-                Log.d("Location", "lastLocation t=${location.time}$accText recent=$isRecent lat=${location.latitude} lon=${location.longitude}")
-                if (isRecent) {
-                    handleLocation(location, shouldSave)
-                } else {
-                    fetchCurrentLocation(shouldSave)
-                }
+                handleLocation(location, shouldSave)
             } else {
-                // Fallback: získání aktuální polohy (lastLocation bývá null na čerstvě spuštěném zařízení/emulátoru)
-                fetchCurrentLocation(shouldSave)
-            }
-        }.addOnFailureListener { e ->
-            Log.e("Location", "lastLocation selhalo: ${e.message}", e)
-            fetchCurrentLocation(shouldSave)
-        }
-    }
-
-    private fun isRecentLocation(location: Location, maxAgeMs: Long = 10_000L): Boolean {
-        return System.currentTimeMillis() - location.time <= maxAgeMs
-    }
-
-    private fun effectivePriority(): Int {
-        val fineGranted = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        return if (fineGranted) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
-    }
-
-    private fun fetchCurrentLocation(shouldSave: Boolean) {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-            ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            progressBar.visibility = View.GONE
-            btnRefresh.visibility = View.VISIBLE
-            return
-        }
-        val priority = effectivePriority()
-        val cts = CancellationTokenSource()
-        fusedLocationClient.getCurrentLocation(priority, cts.token)
-            .addOnSuccessListener { location ->
-                if (location != null) {
-                    Log.d("Location", "getCurrentLocation lat=${location.latitude} lon=${location.longitude} t=${location.time} acc=${location.accuracy}")
-                    handleLocation(location, shouldSave)
-                } else {
-                    // Pokud nevrátí aktuální polohu, požádej o krátké aktivní updaty
-                    requestSingleLocationUpdate(shouldSave)
-                }
-            }
-            .addOnFailureListener { e ->
-                Log.e("Location", "getCurrentLocation selhalo: ${e.message}", e)
-                requestSingleLocationUpdate(shouldSave)
-            }
-    }
-
-    private fun requestSingleLocationUpdate(shouldSave: Boolean) {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-            ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            progressBar.visibility = View.GONE
-            btnRefresh.visibility = View.VISIBLE
-            return
-        }
-        val priority = effectivePriority()
-        val fineGranted = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val request = LocationRequest.Builder(priority, 1000L)
-            .setMinUpdateIntervalMillis(0L)
-            .setMaxUpdateDelayMillis(1000L)
-            .setGranularity(com.google.android.gms.location.Granularity.GRANULARITY_PERMISSION_LEVEL)
-            .setWaitForAccurateLocation(fineGranted)
-            .setDurationMillis(10_000L)
-            .setMaxUpdates(3) // pár pokusů, aby se dohnala změna v emulátoru
-            .build()
-
-        val callback = object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                val loc = result.lastLocation
-                if (loc != null) {
-                    Log.d("Location", "requestUpdate lat=${loc.latitude} lon=${loc.longitude} t=${loc.time} acc=${loc.accuracy}")
-                    fusedLocationClient.removeLocationUpdates(this)
-                    handleLocation(loc, shouldSave)
-                }
+                tvLocation.text = "Poloha není dostupná"
+                tvWeather.text = "Počasí: --"
+                progressBar.visibility = View.GONE
+                btnRefresh.visibility = View.VISIBLE
             }
         }
-        fusedLocationClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
     }
 
     private fun handleLocation(location: Location, shouldSave: Boolean) {
@@ -323,22 +240,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-
-// --- OpenWeatherMap API rozhraní ---
-interface WeatherApi {
-    @GET("weather")
-    fun getWeather(
-        @Query("lat") lat: Double,
-        @Query("lon") lon: Double,
-        @Query("appid") apiKey: String,
-        @Query("units") units: String,
-        @Query("lang") lang: String = "cz"
-    ): Call<WeatherResponse>
-}
-
-data class WeatherResponse(
-    val weather: List<WeatherDesc>,
-    val main: MainWeather
-)
-data class WeatherDesc(val description: String)
-data class MainWeather(val temp: Double)
